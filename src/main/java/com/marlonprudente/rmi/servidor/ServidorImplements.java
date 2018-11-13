@@ -20,7 +20,6 @@ import java.util.List;
  * @author Marlon Prudente <marlon.oliveira at alunos.utfpr.edu.br>
  */
 public class ServidorImplements extends UnicastRemoteObject implements Servidor {
-    private static final long serialVersionUID = 1L;
     
     List<InteressePacote> interessesPacote = new ArrayList<>();
     List<InteressePassagem> interessesPassagem = new ArrayList<>();
@@ -110,7 +109,7 @@ public class ServidorImplements extends UnicastRemoteObject implements Servidor 
                         " => Este quarto é de seu interesse!");
             }
         }
-        verificaInteressePacotes();
+        //verificaInteressePacotes();
     }
 
     @Override
@@ -118,13 +117,14 @@ public class ServidorImplements extends UnicastRemoteObject implements Servidor 
         System.out.println(">Adicionando nova Passagem<");
         Passagem novaPassagem = new Passagem(id, acentosDisponiveis, para, de, dataVoo, preco);
         passagens.add(novaPassagem);
+        
         for(InteressePassagem ip : interessesPassagem){
             if(ip.valorMaximo >= preco && ip.para.equalsIgnoreCase(para) && ip.de.equalsIgnoreCase(de)){
                 System.out.println("Interesse em passagem encontrado");
                 ip.cliente.Notificacao(id + "/Para: " + para + "/De: " + de + "/Data: " + dataVoo.toString() + "/Valor: " + preco + " => Esta passagem é de seu interesse!");
             }
         }
-        verificaInteressePacotes();
+        //verificaInteressePacotes();
     }
 
     @Override
@@ -132,7 +132,7 @@ public class ServidorImplements extends UnicastRemoteObject implements Servidor 
        System.out.println(">Adicionando novo Pacote<");
        Pacotes pacote = new Pacotes(id, passagemId, hotelId, quantidadePessoas, para, de, preco, dataVoo, hotelNome, HotelLocalizacao, pessoasPorQuarto);
        pacotes.add(pacote);
-       verificaInteressePacotes();
+       verificaInteressePacotes(preco);
     }
 
     @Override
@@ -152,7 +152,7 @@ public class ServidorImplements extends UnicastRemoteObject implements Servidor 
         }
         Pacotes pacote = new Pacotes(id,passagemExistente, hotelExistente, quantidadePessoas, preco);
         pacotes.add(pacote);
-        verificaInteressePacotes();
+        verificaInteressePacotes(preco);
         
     }
 
@@ -193,8 +193,20 @@ public class ServidorImplements extends UnicastRemoteObject implements Servidor 
 
     @Override
     public boolean VenderPacote(Integer passagemId, Integer hotelId, Integer quantidadePessoas, Date dataInicial, Date dataFinal) throws RemoteException {
-        VenderPassagem(passagemId, quantidadePessoas);
-        VenderQuartos(hotelId, quantidadePessoas, dataInicial, dataFinal);
+        Pacotes remover = null;
+        for(Pacotes p : pacotes){
+            if(p.passagem.id.equals(passagemId)  && p.hotel.id.equals(hotelId)){
+                remover = p;
+            }
+        }
+        if(remover != null){
+            System.out.println("Vendendo pacote!");
+            VenderPassagem(passagemId, quantidadePessoas);
+            VenderQuartos(hotelId, quantidadePessoas, dataInicial, dataFinal);
+            pacotes.remove(remover);
+        }
+
+
         return true;
     }
 
@@ -218,7 +230,7 @@ public class ServidorImplements extends UnicastRemoteObject implements Servidor 
         InteressePassagem ip = null;
         
         for(InteressePassagem intP : interessesPassagem){
-            if(intP.para.equalsIgnoreCase(para) && intP.de.equalsIgnoreCase(de) && intP.valorMaximo == valorMaximo){
+            if(intP.para.equalsIgnoreCase(para) && intP.de.equalsIgnoreCase(de) && intP.valorMaximo.equals(valorMaximo)){
                 ip = intP;
             }
         }
@@ -266,7 +278,7 @@ public class ServidorImplements extends UnicastRemoteObject implements Servidor 
     @Override
     public boolean RegistrarInteressePacote(String para, String de, String localizacao, Integer valorMaximo, Integer quantidadePessoas, String cliente) throws RemoteException {
         System.out.println("Registrando interesse em pacote!");
-                Registry referenciaServicoNomes = LocateRegistry.getRegistry(2000);
+        Registry referenciaServicoNomes = LocateRegistry.getRegistry(2000);
         Cliente novoCliente = null;
         try{
             novoCliente = (Cliente)referenciaServicoNomes.lookup(cliente);
@@ -274,7 +286,7 @@ public class ServidorImplements extends UnicastRemoteObject implements Servidor 
             System.out.println("RegistrarInteressePacote: " + e);
         }
         interessesPacote.add( new InteressePacote(para, de, localizacao, valorMaximo, quantidadePessoas, novoCliente));
-        verificaInteressePacotes();
+        verificaInteressePacotes(valorMaximo);
         return true;
     }
 
@@ -295,25 +307,34 @@ public class ServidorImplements extends UnicastRemoteObject implements Servidor 
         }
     }
     
-    public void verificaInteressePacotes() throws RemoteException{
-        for(InteressePacote ip: interessesPacote){
-            boolean encontreiPassagens = false;
-            boolean encontreiHotel = false;
-            for(Passagem p : passagens){
-                if(ip.para.equalsIgnoreCase(p.para) && ip.de.equalsIgnoreCase(p.de)){
+    public void verificaInteressePacotes(int valorMaximo) throws RemoteException {
+
+        boolean encontreiPassagens = false;
+        boolean encontreiHotel = false;
+        InteressePacote remover = null;
+        for (InteressePacote ip : interessesPacote) {
+
+            for (Passagem p : passagens) {
+                if (ip.para.equalsIgnoreCase(p.para) && ip.de.equalsIgnoreCase(p.de)) {
                     encontreiPassagens = true;
                 }
             }
-            for(Hoteis h : hoteis){
-                if(ip.localizacao.equalsIgnoreCase(h.localizacao) && ip.quantidadePessoas <= h.getQuantidadePessoasDisponiveis()){
+            for (Hoteis h : hoteis) {
+                if (ip.localizacao.equalsIgnoreCase(h.localizacao) && ip.quantidadePessoas <= h.getQuantidadePessoasDisponiveis()) {
                     encontreiHotel = true;
                 }
             }
-            
-            if(encontreiPassagens && encontreiHotel){
-                ip.cliente.Notificacao("Pacote de seu interesse foi encontrado!");
-                interessesPacote.remove(ip);
+            if (encontreiPassagens && encontreiHotel) {
+                remover = ip;
             }
+        }
+        if (remover != null) {
+
+            if (remover.valorMaximo <= valorMaximo) {
+                remover.cliente.Notificacao("Pacote de seu interesse foi encontrado! - Para: " + remover.para + "/Valor:" + valorMaximo);
+                interessesPacote.remove(remover);
+            }
+
         }
     }
     

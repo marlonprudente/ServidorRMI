@@ -39,9 +39,15 @@ public class Main {
             Integer id, poltronas,quartos, pessoasPorQuarto, valor = null;
             String de, para, localizacao, nomeHotel = null;
             Date dataIda = null, dataVolta = null;
-            
-            servidor.AdicionarPassagem(1, 50, "SP", "CWB", Date.from(Instant.now()), 50);
-            servidor.AdicionarHotel(15, "MãeJoanaHotel", "SP", 10, 3, 50);
+            try {
+                DateFormat dft = new SimpleDateFormat("dd/mm/yyyy", Locale.ENGLISH);
+                servidor.AdicionarPassagem(1, 2, "MG", "CWB", dft.parse("15/11/2018"), 50);
+
+            } catch (ParseException e) {
+                System.out.println("Erro ao Inserir data de viagem: " + e);
+            }
+            servidor.AdicionarHotel(1, "DonaMaria", "MG", 1, 2, 50);
+            servidor.AdicionarPacote(1, 1, 1, 2, 100);
             
             while(true){
                 System.out.println("1 - Adicionar Passagem");
